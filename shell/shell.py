@@ -43,29 +43,25 @@ class Shell:
 
     def specialCommand(self, command):
         pid = os.getpid()
-        rc = os.fork()
+        newProcess = os.fork()
         args = command
 
-        if rc < 0:
-            os.write(2, ("Fork failed, returning %d\n" % rc).encode())
+        if newProcess < 0:
+            os.write(2, ("Fork failed, returning %d\n" % newProcess).encode())
             sys.exit(1)
-
-        elif rc == 0:      #child
-        # try:
+        elif newProcess == 0:      
             if '>' in args:
                 redirect = command.split('> ')
                 os.close(1)
                 os.open(redirect[1], os.O_CREAT | os.O_WRONLY);
                 os.set_inheritable(1, True)
                 self.exeCommand(redirect[0])
-
             if '<' in args:
                 redirect = command.split('< ')
                 os.close(0)
                 os.open(redirect[1], os.O_RDONLY);
                 os.set_inheritable(0, True)
                 self.exeCommand(redirect[0])
-        
             self.exeCommand(args)
         else:
             if not '&' in args: #background task
@@ -77,19 +73,17 @@ class Shell:
         for f in (pr, pw):
             os.set_inheritable(f, True)
 
-        rc = os.fork()
-        if rc < 0:
+        newProcess = os.fork()
+        if newProcess < 0:
             print("fork failed, returning %d\n" %rc, file=sys.stderr)
             sys.exit(1)
-
-        elif rc == 0:
+        elif newProcess == 0:
             os.close(1)         #redirect child's stdout
             os.dup(pw)
             os.set_inheritable(1, True)
             for fd in (pr, pw):
                 os.close(fd)
-            self.exeCommand(command[0:command.index('|')])
-                    
+            self.exeCommand(command[0:command.index('|')])                    
         else:
             os.close(0)
             os.dup(pr)
@@ -105,8 +99,8 @@ class Shell:
             try:
                 os.execve(program, args, os.environ) #try to exec program
             except FileNotFoundError:                #this is expected
-                pass                                 #fail quietly
-                
+                pass                                 #fail quietly                
         os.write(2, ("Command %s not found. Try again.\n" % args[0]).encode())
         sys.exit(1)                                  #terminate with error
+        
 run = Shell()
