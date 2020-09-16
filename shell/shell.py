@@ -12,12 +12,24 @@ class Shell:
         print("process:",self.pid)
         #command prompt
         while 1:
-            path = os.getcwd()
-            command = input(path + "\n$ ")
+            currentPath = os.getcwd()
+            command = input(currentPath + "\n$ ")
             if command == "exit":
                 break
             tokens = command.split()
-            print(tokens)
+            if(tokens[0] == "cd"):
+                self.changeDirectory(tokens[1])
+            if(tokens[0] == "echo"):
+                self.echoPrint(tokens[1])
+
+    def changeDirectory(self, path):
+        try:
+            os.chdir(path)
+        except:
+            print("No such file or directory")
+
+    def echoPrint(self, string):
+        print(string)
 
         """
         newProcess = os.fork()
