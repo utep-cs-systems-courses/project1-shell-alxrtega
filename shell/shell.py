@@ -8,16 +8,20 @@ class Shell:
         self.executeCommand()
 
     def executeCommand(self):  
+
         #command prompt
         while 1:
+
             currentPath = os.getcwd()
             command = input(currentPath + "\n$ ")
+            command = command.strip()
+
             if command == "exit":
                 sys.exit(0)
-            elif command == "ls":
+            elif command == "ls" or command == "dir":
                 self.listDir()
             elif ">" in command or "<" in command:
-                self.specialCommand(command)
+                self.redirection(command)
             elif "|" in command: 
                 self.pipeCommand(command)
             else: 
@@ -27,7 +31,8 @@ class Shell:
                 elif tokens[0] == "echo":
                     self.echoPrint(tokens[1:])
                 else:
-                    print(command+": command not found")
+                    self.exeCommand(command)
+                    pass
 
     def exeCommand(self, command):
         args = command.split()
@@ -49,33 +54,38 @@ class Shell:
     def echoPrint(self, string):
         print(' '.join(string))
 
-    def listDir(self):
-        print(" ".join(os.listdir()))
+    def listDir(self,):
+        print("\n".join(os.listdir()))
 
-    def specialCommand(self, command):
-        pid = os.getpid()
+    def redirection(self, command):
         newProcess = os.fork()
-        args = command
 
         if newProcess < 0:
+
             os.write(2, ("Fork failed, returning %d\n" % newProcess).encode())
             sys.exit(1)
-        elif newProcess == 0:      
-            if '>' in args:
-                redirect = command.split('> ')
+
+        elif newProcess == 0: 
+
+            if '>' in command:
+
+                redirect = command.split('>')
                 os.close(1)
                 os.open(redirect[1], os.O_CREAT | os.O_WRONLY)
                 os.set_inheritable(1, True)
                 self.exeCommand(redirect[0])
-            if '<' in args:
-                redirect = command.split('< ')
+
+            if '<' in command:
+
+                redirect = command.split('<')
                 os.close(0)
                 os.open(redirect[1], os.O_RDONLY)
                 os.set_inheritable(0, True)
                 self.exeCommand(redirect[0])
-            self.exeCommand(args)
+
+            self.exeCommand(command)
         else:
-            if not '&' in args: #background task
+            if not '&' in command: #background task
                 waiting = os.wait()
 
     def pipeCommand(self, command):
