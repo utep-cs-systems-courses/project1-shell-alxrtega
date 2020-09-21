@@ -1,5 +1,3 @@
-#! /usr/bin/env python3
-
 import os, sys, re
 
 class Shell:
@@ -18,8 +16,6 @@ class Shell:
 
             if command == "exit":
                 sys.exit(0)
-            elif command == "ls" or command == "dir":
-                self.listDir()
             elif ">" in command or "<" in command:
                 self.redirection(command)
             elif "|" in command: 
@@ -28,34 +24,38 @@ class Shell:
                 tokens = command.split()
                 if tokens[0] == "cd":
                     self.changeDirectory(tokens[1])
-                elif tokens[0] == "echo":
-                    self.echoPrint(tokens[1:])
                 else:
-                    self.exeCommand(command)
+                    self.runCommand(command)
                     pass
 
-    def exeCommand(self, command):
+    def runCommand(self, command):
         args = command.split()
-        for dir in re.split(":", os.environ['PATH']): #try each directory in the path
-            program = "%s/%s" % (dir, args[0])
-            try:
-                os.execve(program, args, os.environ) #try to exec program
-            except FileNotFoundError:                #this is expected
-                pass                                 #fail quietly                
-        os.write(2, ("Command %s not found. Try again.\n" % args[0]).encode())
-        sys.exit(1)                                  #terminate with error
+        pid = os.getpid()
+        newProcess = os.fork()
+
+        if newProcess < 0:
+
+            os.write(2,("Fork failed.").encode())
+            sys.exit(1)
+
+        elif newProcess == 0:
+
+            for dir in re.split(":", os.environ['PATH']): #try each directory in the path
+                program = "%s/%s" % (dir, args[0])
+                try:
+                    os.execve(program, args, os.environ) #try to exec program
+                except FileNotFoundError:                #this is expected
+                    pass                                 #fail quietly                
+            os.write(2, ("Command %s not found. Try again.\n" % args[0]).encode())
+            sys.exit(1)                                  #terminate with error
+        else: 
+            waiting = os.wait()
 
     def changeDirectory(self, path):
         try:
             os.chdir(path)
         except:
             print("No such file or directory")
-
-    def echoPrint(self, string):
-        print(' '.join(string))
-
-    def listDir(self,):
-        print("\n".join(os.listdir()))
 
     def redirection(self, command):
         newProcess = os.fork()
@@ -73,7 +73,7 @@ class Shell:
                 os.close(1)
                 os.open(redirect[1], os.O_CREAT | os.O_WRONLY)
                 os.set_inheritable(1, True)
-                self.exeCommand(redirect[0])
+                self.runCommand(redirect[0])
 
             if '<' in command:
 
@@ -81,9 +81,9 @@ class Shell:
                 os.close(0)
                 os.open(redirect[1], os.O_RDONLY)
                 os.set_inheritable(0, True)
-                self.exeCommand(redirect[0])
+                self.runCommand(redirect[0])
 
-            self.exeCommand(command)
+            self.runCommand(command)
         else:
             if not '&' in command: #background task
                 waiting = os.wait()
@@ -105,13 +105,13 @@ class Shell:
             os.set_inheritable(1, True)
             for fd in (pr, pw):
                 os.close(fd)
-            self.exeCommand(command[0:command.index('|')])                    
+            self.runCommand(command[0:command.index('|')])                    
         else:
             os.close(0)
             os.dup(pr)
             os.set_inheritable(0, True)
             for fd in (pw, pr):
                 os.close(fd)
-            self.exeCommand(command[command.index('|') + 1:])
+            self.runCommand(command[command.index('|') + 1:])
         
 run = Shell()
