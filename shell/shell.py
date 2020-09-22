@@ -1,7 +1,9 @@
 import os, sys, re
 '''
 @Author Alejandro Ortega
-class Shell will emulate a bash terminal
+class Shell will emulate a bash terminal by using redirection
+and piping. this Shell will also list the directories and will
+change to desired directories
 '''
 class Shell:
 
@@ -45,6 +47,11 @@ class Shell:
                 else: 
                     waiting = os.wait()
 
+    '''
+    getUserInput() will manage user input using os.read()
+    the input will be formatted to be used in the command
+    execution
+    '''
     def getUserInput(self):
         currentPath = os.getcwd()
         print(currentPath + "\n$ ", end = " ")
@@ -63,7 +70,6 @@ class Shell:
     '''
     def runCommand(self, command):
         args = command.split()
-        pid  = os.getpid()
 
         for dir in re.split(":", os.environ['PATH']):
             program = "%s/%s" % (dir, args[0])
@@ -126,16 +132,17 @@ class Shell:
     pipeCommand() will manage piping to emulate the terminals by splitting the command
     by the '|' character and then it will run both commands in different processes
     '''
+    #try when testing ls | wc
+    #ls | grep e
+    # sleep 3 | ls
+
     def pipeCommand(self, command):
         cmd1, cmd2 = command.split('|')    
         pr, pw = os.pipe()
 
         for f in (pr, pw):
             os.set_inheritable(f, True)
-        #try when testing ls | wc
-        #ls | grep e
-        # sleep 3 | ls
-
+        
         newProcess = os.fork()
         if newProcess < 0:
 
@@ -152,13 +159,23 @@ class Shell:
             self.runCommand(cmd1)                    
 
         else:
-            
-            #put fork here
-            os.close(0)
-            os.dup(pr)
-            os.set_inheritable(0, True)
-            for fd in (pw, pr):
-                os.close(fd)
-            self.runCommand(cmd2)
+
+            newProcess = os.fork()
+            if newProcess < 0:
+
+                os.write(2,("Fork failed.").encode())
+                sys.exit(1)
+
+            elif newProcess == 0:
+
+                os.close(0)
+                os.dup(pr)
+                os.set_inheritable(0, True)
+                for fd in (pw, pr):
+                    os.close(fd)
+                self.runCommand(cmd2)
+
+            else: 
+                waiting = os.wait()
         
 run = Shell()
