@@ -29,12 +29,26 @@ class Shell:
                 tokens = command.split()
                 self.changeDirectory(tokens[1])
             else:
-                self.runCommand(command)
-                pass
+
+                newProcess = os.fork()
+                if newProcess < 0:
+
+                    os.write(2,("Fork failed.").encode())
+                    sys.exit(1)
+
+                elif newProcess == 0:
+
+                    #put new fork here
+                    self.runCommand(command)
+                    pass
+
+                else: 
+                    waiting = os.wait()
 
     def getUserInput(self):
         currentPath = os.getcwd()
         print(currentPath + "\n$ ", end = " ")
+        #put if statement for PS1 here
         userInput = os.read(0, 128)
         userInput = userInput.decode().split("\n")
         userInput = userInput[0]
@@ -51,27 +65,16 @@ class Shell:
         args = command.split()
         pid  = os.getpid()
 
-        newProcess = os.fork()
-        if newProcess < 0:
+        for dir in re.split(":", os.environ['PATH']):
+            program = "%s/%s" % (dir, args[0])
 
-            os.write(2,("Fork failed.").encode())
-            sys.exit(1)
+            try:
+                os.execve(program, args, os.environ) 
+            except FileNotFoundError:                
+                pass                                 
 
-        elif newProcess == 0:
-
-            for dir in re.split(":", os.environ['PATH']):
-                program = "%s/%s" % (dir, args[0])
-
-                try:
-                    os.execve(program, args, os.environ) 
-                except FileNotFoundError:                
-                    pass                                 
-
-            os.write(2, ("Command %s not found. Try again.\n" % args[0]).encode())
-            sys.exit(1)                                  
-
-        else: 
-            waiting = os.wait()
+        os.write(2, ("Command %s not found. Try again.\n" % args[0]).encode())
+        sys.exit(1)                                  
 
     '''
     changeDirectory() will manage the directory change
@@ -129,6 +132,9 @@ class Shell:
 
         for f in (pr, pw):
             os.set_inheritable(f, True)
+        #try when testing ls | wc
+        #ls | grep e
+        # sleep 3 | ls
 
         newProcess = os.fork()
         if newProcess < 0:
@@ -146,7 +152,8 @@ class Shell:
             self.runCommand(cmd1)                    
 
         else:
-
+            
+            #put fork here
             os.close(0)
             os.dup(pr)
             os.set_inheritable(0, True)
